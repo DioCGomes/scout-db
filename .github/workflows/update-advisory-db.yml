@@ -1,0 +1,82 @@
+name: Update Advisory Database
+
+on:
+  schedule:
+    # Run daily at midnight UTC
+    # - cron: '0 0 * * *'
+    # Run weekly on Sundays at midnight UTC
+    - cron: '0 0 * * 0'
+
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-db:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone GitHub Advisory Database
+        run: git clone --depth 1 https://github.com/github/advisory-database.git advisory-database
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build databases
+        run: python3 dbupdate.py
+
+      - name: Show database stats
+        id: stats
+        run: |
+          echo "=== Database Statistics ==="
+          for db in scout.db scout-reviewed.db; do
+            count=$(sqlite3 "$db" "SELECT COUNT(*) FROM advisories;")
+            size=$(du -h "$db" | cut -f1)
+            echo "$db: $count advisories ($size)"
+          done
+          
+          # Get counts for release notes
+          SCOUT_COUNT=$(sqlite3 scout.db "SELECT COUNT(*) FROM advisories;")
+          REVIEWED_COUNT=$(sqlite3 scout-reviewed.db "SELECT COUNT(*) FROM advisories;")
+          echo "scout_count=$SCOUT_COUNT" >> $GITHUB_OUTPUT
+          echo "reviewed_count=$REVIEWED_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Generate release tag
+        id: tag
+        run: echo "tag=v$(date -u +%Y.%m.%d)" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: Advisory Database ${{ steps.tag.outputs.tag }}
+          body: |
+            ## Advisory Database Update
+            
+            **Date:** ${{ steps.tag.outputs.tag }}
+            
+            ### Database Statistics
+            - `scout.db`: ${{ steps.stats.outputs.scout_count }} advisories (all vulnerabilities)
+            - `scout-reviewed.db`: ${{ steps.stats.outputs.reviewed_count }} advisories (reviewed only)
+            
+            ### Downloads
+            - **scout.db** - All vulnerabilities (reviewed + unreviewed)
+            - **scout-reviewed.db** - GitHub-reviewed vulnerabilities only
+          files: |
+            scout.db
+            scout-reviewed.db
+          make_latest: true
+
+      - name: Delete old releases (keep last 5)
+        uses: dev-drprasad/delete-older-releases@v0.3.4
+        with:
+          keep_latest: 5
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
