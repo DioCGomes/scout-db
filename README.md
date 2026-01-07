@@ -1,6 +1,6 @@
 # Scout DB
 
-SQLite databases of security advisories extracted from the [GitHub Advisory Database](https://github.com/github/advisory-database) to run on SCA Tool [SCOUT](https://github.com/mlw157/scout).
+SQLite databases of security advisories extracted from the [GitHub Advisory Database](https://github.com/github/advisory-database) to run on SCA Tool [Scout](https://github.com/mlw157/scout).
 
 ## Databases
 

@@ -1,2 +1,16 @@
+# Cloned advisory database
 /advisory-database
+
+# Generated databases
 *.db
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
